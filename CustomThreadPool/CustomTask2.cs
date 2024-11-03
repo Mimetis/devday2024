@@ -1,16 +1,69 @@
-﻿namespace ThreadPool01
+﻿using System.Runtime.CompilerServices;
+
+namespace ThreadPool01
 {
-    public class CustomTask
+    public class CustomTask2
     {
         private Exception? exception;
         private Action? continuation;
         private ExecutionContext? context;
+
+
+        public struct Awaiter : INotifyCompletion
+        {
+            private readonly CustomTask2 task;
+            public Awaiter(CustomTask2 task) => this.task = task;
+            public bool IsCompleted => task.IsCompleted;
+            public void OnCompleted(Action continuation) => task.ContinueWith(continuation);
+            public void GetResult()
+            {
+                task.Wait();
+            }
+            //public Awaiter GetAwaiter() => this;
+        }
+
+        public Awaiter GetAwaiter() => new(this);
+
 
         /// <summary>
         /// Gets a value indicating whether the task has completed.
         /// Be careful, we need to kind of lock(this) but as simplicity, we will not here
         /// </summary>
         public bool IsCompleted { get; private set; }
+
+        /// <summary>
+        /// Set the result of the task
+        /// </summary>
+        public void SetResult() => Complete(null);
+
+        /// <summary>
+        /// Set the exception of the task
+        /// </summary>
+        /// <param name="error"></param>
+        public void SetException(Exception error) => Complete(error);
+
+        /// <summary>
+        /// Run an action asynchronously
+        /// </summary>
+        public static CustomTask2 Run(Action action)
+        {
+            var task = new CustomTask2();
+            CustomThreadPoolEnd.QueueUserWorkItem(() =>
+            {
+                try
+                {
+                    action();
+                }
+                catch (Exception ex)
+                {
+                    task.SetException(ex);
+                    return;
+                }
+
+                task.SetResult();
+            });
+            return task;
+        }
 
         /// <summary>
         /// Compkete the task with an optional exception 
@@ -33,26 +86,43 @@
                         continuation();
                 });
             }
+
+
         }
 
         /// <summary>
-        /// Set the result of the task
+        /// Block until the task is completed
         /// </summary>
-        public void SetResult() => Complete(null);
+        public void Wait()
+        {
+            // block until the task is completed
+            ManualResetEventSlim? mres = null;
 
-        /// <summary>
-        /// Set the exception of the task
-        /// </summary>
-        /// <param name="error"></param>
-        public void SetException(Exception error) => Complete(error);
+            if (!IsCompleted)
+            {
+                mres = new ManualResetEventSlim();
+                ContinueWith(mres.Set);
+            }
+
+            mres?.Wait();
+
+            if (exception is not null)
+            {
+                // better to use ExceptionDispatchInfo.Throw(exception); to get the original stack trace
+                // but for simplicity, we will just throw the exception
+                throw exception;
+            }
+
+
+        }
 
         /// <summary>
         /// Continue with an action
         /// </summary>
-        public CustomTask ContinueWith(Action action)
+        public CustomTask2 ContinueWith(Action action)
         {
 
-            var work = new CustomTask();
+            var work = new CustomTask2();
 
             Action callback = () =>
             {
@@ -86,62 +156,11 @@
 
 
         /// <summary>
-        /// Run an action asynchronously
-        /// </summary>
-        public static CustomTask Run(Action action)
-        {
-            var task = new CustomTask();
-            CustomThreadPoolEnd.QueueUserWorkItem(() =>
-            {
-                try
-                {
-                    action();
-                }
-                catch (Exception ex)
-                {
-                    task.SetException(ex);
-                    return;
-                }
-
-                task.SetResult();
-            });
-            return task;
-        }
-
-        /// <summary>
-        /// Block until the task is completed
-        /// </summary>
-        public void Wait()
-        {
-            // block until the task is completed
-            ManualResetEventSlim? mres = null;
-
-            if (!IsCompleted)
-            {
-                mres = new ManualResetEventSlim();
-                ContinueWith(mres.Set);
-            }
-
-            mres?.Wait();
-
-            if (exception is not null)
-            {
-                // better to use ExceptionDispatchInfo.Throw(exception); to get the original stack trace
-                // but for simplicity, we will just throw the exception
-                throw exception;
-            }
-
-
-        }
-
-
-
-        /// <summary>
         /// When all tasks are completed
         /// </summary>
-        public static CustomTask WhenAll(params CustomTask[] tasks)
+        public static CustomTask2 WhenAll(params CustomTask2[] tasks)
         {
-            var task = new CustomTask();
+            var task = new CustomTask2();
             var count = tasks.Length;
 
             if (tasks.Length == 0)
@@ -167,9 +186,9 @@
         /// <summary>
         /// Delay the task
         /// </summary>
-        public static CustomTask Delay(int milliseconds)
+        public static CustomTask2 Delay(int milliseconds)
         {
-            var task = new CustomTask();
+            var task = new CustomTask2();
 
             var timer = new Timer(_ => task.SetResult(), null, milliseconds, Timeout.Infinite);
 

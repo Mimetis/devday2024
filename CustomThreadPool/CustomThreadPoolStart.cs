@@ -7,7 +7,7 @@ namespace ThreadPool01
     /// </summary>
     public class CustomThreadPoolStart
     {
-
+        // Store the actions in a queue
         private static readonly ConcurrentQueue<Action> queue = new();
 
         /// <summary>

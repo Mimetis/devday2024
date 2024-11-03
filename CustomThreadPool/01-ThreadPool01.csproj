@@ -5,6 +5,8 @@
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <AssemblyName>ThreadPool01</AssemblyName>
+    <RootNamespace>ThreadPool01</RootNamespace>
   </PropertyGroup>
 
 </Project>

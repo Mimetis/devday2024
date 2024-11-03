@@ -14,6 +14,7 @@
 
             ExecuteMultithreading();
         }
+
         public static async Task ExecuteAsyncFunctions()
         {
             var firstAsync = FirstAsync();
