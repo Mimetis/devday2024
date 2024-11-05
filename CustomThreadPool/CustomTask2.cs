@@ -9,21 +9,14 @@ namespace ThreadPool01
         private ExecutionContext? context;
 
 
-        public struct Awaiter : INotifyCompletion
+        public readonly struct Awaiter(CustomTask2 task) : INotifyCompletion
         {
-            private readonly CustomTask2 task;
-            public Awaiter(CustomTask2 task) => this.task = task;
             public bool IsCompleted => task.IsCompleted;
             public void OnCompleted(Action continuation) => task.ContinueWith(continuation);
-            public void GetResult()
-            {
-                task.Wait();
-            }
-            //public Awaiter GetAwaiter() => this;
+            public void GetResult() => task.Wait();
         }
 
         public Awaiter GetAwaiter() => new(this);
-
 
         /// <summary>
         /// Gets a value indicating whether the task has completed.
